@@ -1,0 +1,69 @@
+const express = require('express');
+const router = express.Router();
+const Deposit = require('../models/Deposit');
+const User = require('../models/User');
+const fetch = require('node-fetch');
+
+
+function getDarajaAccessToken() {
+// exchange consumerKey & secret for oauth token (sandbox)
+const key = process.env.DARAJA_KEY;
+const secret = process.env.DARAJA_SECRET;
+const auth = Buffer.from(`${key}:${secret}`).toString('base64');
+return fetch('https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials', {
+headers: { Authorization: `Basic ${auth}` }
+}).then(r => r.json());
+}
+
+
+router.post('/initiate', async (req, res) => {
+const { amount, phone, token } = req.body;
+// validate JWT (simple example)
+const userId = req.userIdFromToken; // implement middleware in real app
+
+
+// create deposit record
+const deposit = await Deposit.create({ user: userId, amount, phone });
+
+
+// get access token
+const t = await getDarajaAccessToken();
+const accessToken = t.access_token;
+
+
+// build STK push request body
+const timestamp = new Date().toISOString().replace(/[^0-9]/g, '').slice(0,14);
+const passkey = process.env.DARAJA_PASSKEY;
+const shortcode = process.env.DARAJA_SHORTCODE;
+const password = Buffer.from(shortcode + passkey + timestamp).toString('base64');
+
+
+const body = {
+BusinessShortCode: shortcode,
+Password: password,
+Timestamp: timestamp,
+TransactionType: 'CustomerPayBillOnline',
+Amount: amount,
+PartyA: phone,
+PartyB: shortcode,
+PhoneNumber: phone,
+CallBackURL: process.env.MPESA_CALLBACK_URL,
+AccountReference: 'Scheme Capital',
+TransactionDesc: 'Deposit to Scheme Capital'
+};
+
+
+const resp = await fetch('https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest', {
+method: 'POST',
+headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+body: JSON.stringify(body)
+});
+const data = await resp.json();
+// save checkout id to deposit
+deposit.mpesaCheckoutRequestId = data.CheckoutRequestID || data.checkoutRequestID || '';
+await deposit.save();
+res.json({ success: true, data });
+});
+
+
+module.exports = router;MPESA  STK
