@@ -1,0 +1,35 @@
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+require('dotenv').config();
+const authRoutes = require('./routes/auth');
+const depositRoutes = require('./routes/deposit');
+const dailyInterest = require('./cron/dailyInterest');
+
+
+const app = express();
+app.use(express.json());
+app.use(cors());
+
+
+app.use('/api/auth', authRoutes);
+app.use('/api/deposit', depositRoutes);
+
+
+// webhook endpoint for MPesa callbacks
+app.post('/api/mpesa/callback', (req, res) => {
+// handle callback: update deposit status using callback data
+console.log('mpesa callback', req.body);
+res.status(200).send('ok');
+});
+
+
+const PORT = process.env.PORT || 4000;
+mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+.then(() => {
+console.log('Mongo connected');
+app.listen(PORT, () => console.log('Server running on', PORT));
+// start daily interest job
+dailyInterest.start();
+})
+.catch(err => console.error(err));
