@@ -1,0 +1,13 @@
+const mongoose = require('mongoose');
+
+
+const userSchema = new mongoose.Schema({
+email: { type: String, required: true, unique: true },
+passwordHash: { type: String, required: true },
+balance: { type: Number, default: 0 },
+deposits: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Deposit' }],
+createdAt: { type: Date, default: Date.now }
+});
+
+
+module.exports = mongoose.model('User', userSchema);
