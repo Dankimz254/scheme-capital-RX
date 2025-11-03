@@ -1,0 +1,14 @@
+const mongoose = require('mongoose');
+
+
+const depositSchema = new mongoose.Schema({
+user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+amount: Number,
+phone: String,
+mpesaCheckoutRequestId: String,
+status: { type: String, enum: ['pending','success','failed'], default: 'pending' },
+createdAt: { type: Date, default: Date.now }
+});
+
+
+module.exports = mongoose.model('Deposit', depositSchema);
