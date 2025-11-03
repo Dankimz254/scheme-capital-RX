@@ -1,0 +1,21 @@
+onst cron = require('node-cron');
+const User = require('../models/User');
+
+
+// 10% annual interest -> daily rate
+const ANNUAL_RATE = parseFloat(process.env.ANNUAL_RATE || '0.10');
+const DAILY_RATE = ANNUAL_RATE / 365;
+
+
+module.exports.start = () => {
+// runs once per day at 00:05
+cron.schedule('5 0 * * *', async () => {
+console.log('running daily interest job');
+const users = await User.find({});
+for(const u of users) {
+const interest = u.balance * DAILY_RATE;
+u.balance = u.balance + interest;
+await u.save();
+}
+});
+};
